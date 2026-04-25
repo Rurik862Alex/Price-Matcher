@@ -36,6 +36,7 @@ export function normalizeManufacturer(str: string): string {
   });
   
   res = res.trim();
+  if (!res) return 'прочее';
   return MF_MAP[res] || res;
 }
 

@@ -32,7 +32,7 @@ export const ABBREVIATIONS: Record<string, string> = {
 // Manufacturer normalization
 export const MF_CLEANUP = [
   /\bоао\b/gi, /\bооо\b/gi, /\bао\b/gi, /\bзао\b/gi, /\bпкф\b/gi,
-  /\bн\.новгород\b/gi, /\bкитай\b/gi, /\bг\.\b/gi, /\bроссия\b/gi
+  /\bн\.новгород\b/gi, /\bг\.\b/gi, /\bроссия\b/gi
 ];
 
 export const MF_MAP: Record<string, string> = {
@@ -42,4 +42,11 @@ export const MF_MAP: Record<string, string> = {
   'змз': 'заволжский моторный завод',
   'газ': 'горьковский автомобильный завод',
   'ваз': 'волжский автомобильный завод',
+  'прочее': 'прочее',
+  'noname': 'прочее',
+  'прзп': 'прочее',
+  'китай': 'прочее',
+  'кнр': 'прочее',
+  'noname/китай': 'прочее',
+  'unknown': 'прочее',
 };

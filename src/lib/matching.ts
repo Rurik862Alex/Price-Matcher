@@ -61,16 +61,36 @@ export function matchProducts(
 
       // Priority 2: Simple Article Match
       if (candidates.length > 0) {
+        // Even if there's only 1 candidate, we should check if the manufacturer is at least somewhat similar
+        // if they both have specified manufacturers.
+        const scoreManufacturer = (c: Product) => {
+          const cMf = normalizeManufacturer(c.manufacturer || '');
+          if (cMf === tMf) return 100;
+          if (cMf.includes(tMf) || tMf.includes(cMf)) return 90;
+          
+          // Semantic check for manufacturer
+          const fuzzyRes = fuzzysort.single(tMf, cMf);
+          if (fuzzyRes && fuzzyRes.score > -200) return 80;
+          
+          // If one is "прочее", we are more lenient
+          if (tMf === 'прочее' || cMf === 'прочее') return 50;
+          
+          return 0;
+        };
+
         if (candidates.length === 1) {
-          return { targetItem: target, matchedItem: candidates[0], priority: 2, score: 80 };
-        }
-        
-        const bestByMf = candidates.find(c => {
-           const cMf = normalizeManufacturer(c.manufacturer);
-           return cMf.includes(tMf) || tMf.includes(cMf);
-        });
-        if (bestByMf) {
-          return { targetItem: target, matchedItem: bestByMf, priority: 2, score: 90 };
+          const mfScore = scoreManufacturer(candidates[0]);
+          if (mfScore >= 50) {
+            return { targetItem: target, matchedItem: candidates[0], priority: 2, score: 70 + mfScore / 10 };
+          }
+        } else {
+          // If multiple, find the one with best manufacturer score
+          const candidatesWithScores = candidates.map(c => ({ item: c, mfScore: scoreManufacturer(c) }));
+          candidatesWithScores.sort((a, b) => b.mfScore - a.mfScore);
+          
+          if (candidatesWithScores[0].mfScore >= 50) {
+            return { targetItem: target, matchedItem: candidatesWithScores[0].item, priority: 2, score: 80 + candidatesWithScores[0].mfScore / 10 };
+          }
         }
       }
 
