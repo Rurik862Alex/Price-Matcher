@@ -47,9 +47,18 @@ export default function App() {
     const keys = Object.keys(item);
     const normalizedTargetNames = possibleNames.map(n => n.toLowerCase().trim());
     
+    // 1. Try exact match (normalized)
     for (const key of keys) {
       const normalizedKey = key.toLowerCase().trim();
       if (normalizedTargetNames.includes(normalizedKey)) {
+        return item[key];
+      }
+    }
+
+    // 2. Try partial match
+    for (const key of keys) {
+      const normalizedKey = key.toLowerCase().trim();
+      if (normalizedTargetNames.some(target => normalizedKey.includes(target) || target.includes(normalizedKey))) {
         return item[key];
       }
     }
@@ -68,17 +77,17 @@ export default function App() {
         }
 
         const products: Product[] = data.map((item: any) => {
-          const article = findColumn(item, ['Артикул', 'Артикул детали', 'Article', 'Part Number', 'PN']);
-          const name = findColumn(item, ['Наименование', 'Название', 'Name', 'Item', 'Product']);
+          const article = findColumn(item, ['Артикул', 'Арт.', 'Article', 'Part Number', 'PN']);
+          const name = findColumn(item, ['Наименование', 'Название', 'Номенклатура', 'Name', 'Item', 'Product']);
           const manufacturer = findColumn(item, ['Производитель', 'Бренд', 'Brand', 'Manufacturer', 'Vendor']);
           const code = findColumn(item, ['Код', 'Код товара', 'Code', 'ID', 'Internal Code']);
 
           return {
-            article: String(article || '').trim(),
-            name: String(name || '').trim(),
-            manufacturer: String(manufacturer || 'Прочее').trim(),
-            code: String(code || '').trim(),
-            ...item
+            ...item,
+            article: String(article !== undefined ? article : (item.article || '')).trim(),
+            name: String(name !== undefined ? name : (item.name || '')).trim(),
+            manufacturer: String(manufacturer !== undefined ? manufacturer : (item.manufacturer || 'Прочее')).trim(),
+            code: String(code !== undefined ? code : (item.code || '')).trim(),
           };
         });
 
@@ -108,15 +117,15 @@ export default function App() {
         }
 
         const products: Product[] = data.map((item: any) => {
-          const article = findColumn(item, ['Артикул', 'Артикул детали', 'Article', 'Part Number', 'PN']);
-          const name = findColumn(item, ['Наименование', 'Название', 'Name', 'Item', 'Product']);
+          const article = findColumn(item, ['Артикул', 'Арт.', 'Article', 'Part Number', 'PN']);
+          const name = findColumn(item, ['Наименование', 'Название', 'Номенклатура', 'Name', 'Item', 'Product']);
           const manufacturer = findColumn(item, ['Производитель', 'Бренд', 'Brand', 'Manufacturer', 'Vendor']);
 
           return {
-            article: String(article || '').trim(),
-            name: String(name || '').trim(),
-            manufacturer: String(manufacturer || 'Прочее').trim(),
-            ...item
+            ...item,
+            article: String(article !== undefined ? article : (item.article || '')).trim(),
+            name: String(name !== undefined ? name : (item.name || '')).trim(),
+            manufacturer: String(manufacturer !== undefined ? manufacturer : (item.manufacturer || 'Прочее')).trim(),
           };
         });
 
@@ -167,20 +176,29 @@ export default function App() {
     
     const exportData = results.map(r => {
       const base = { ...r.targetItem };
-      // Remove our internal keys used for normalization
+      // Remove our internal keys used for normalization TO AVOID OVERWRITING 
+      // if they don't match the original column names
       delete base.article;
       delete base.name;
       delete base.manufacturer;
       delete base.code;
       
+      // Get found name specifically from master item
+      let foundName = '';
+      if (r.matchedItem) {
+        // First priority: check if normalized name is set and not empty
+        // Second priority: try to find the original column again with improved partial matching
+        foundName = r.matchedItem.name || findColumn(r.matchedItem, ['Наименование', 'Название', 'Номенклатура', 'Name', 'Item', 'Product']) || '';
+      }
+
       return {
         ...base,
-        'Артикул': r.targetItem.article,
-        'Наименование': r.targetItem.name,
-        'Производитель': r.targetItem.manufacturer,
+        'Артикул_нормализованный': r.targetItem.article,
+        'Наименование_нормализованное': r.targetItem.name,
+        'Производитель_нормализованный': r.targetItem.manufacturer,
         'код_из_общего_прайса': r.matchedItem?.code || '',
         'точность_совпадения': r.priority === 1 ? 'Точное' : r.priority === 2 ? 'По артикулу' : r.priority === 3 ? 'Семантическое' : 'Нет совпадения',
-        'найденное_наименование': r.matchedItem?.name || ''
+        'найденное_наименование': String(foundName).trim()
       };
     });
 
