@@ -14,7 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Product, MatchResult } from './lib/types';
-import { matchProducts } from './lib/matching';
+import { matchProducts, prepareMasterData } from './lib/matching';
 import { cn } from './lib/utils';
 
 export default function App() {
@@ -147,26 +147,45 @@ export default function App() {
     if (masterData.length === 0 || targetData.length === 0) return;
     
     setIsProcessing(true);
-    setStatus('Выполнение сопоставления...');
+    setStatus('Подготовка данных...');
+    setResults([]);
     
     // Tiny delay to let UI show the status change
-    setTimeout(() => {
-      try {
-        console.time('match_process');
-        const matchResults = matchProducts(targetData, masterData);
-        console.timeEnd('match_process');
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    try {
+      console.time('match_process_total');
+      
+      const preparedMaster = prepareMasterData(masterData);
+      
+      const CHUNK_SIZE = 500;
+      const allResults: MatchResult[] = [];
+      const total = targetData.length;
+      
+      // We process in chunks to prevent blocking the main thread
+      for (let i = 0; i < total; i += CHUNK_SIZE) {
+        const chunk = targetData.slice(i, i + CHUNK_SIZE);
+        setStatus(`Сопоставление: ${(i / total * 100).toFixed(0)}% (${i} из ${total})`);
         
-        setResults(matchResults);
-        setIsProcessing(false);
+        // Give UI a chance to update and avoid blocking
+        await new Promise(resolve => setTimeout(resolve, 10));
         
-        const matchedCount = matchResults.filter(r => r && r.priority > 0).length;
-        setStatus(`Сопоставление завершено. Найдено ${matchedCount} из ${targetData.length} соответствий.`);
-      } catch (err) {
-        console.error('Matching error:', err);
-        setStatus(`Ошибка: ${err instanceof Error ? err.message : 'Неизвестная ошибка при сопоставлении'}`);
-        setIsProcessing(false);
+        const chunkResults = matchProducts(chunk, preparedMaster);
+        allResults.push(...chunkResults);
       }
-    }, 150);
+      
+      console.timeEnd('match_process_total');
+      
+      setResults(allResults);
+      setIsProcessing(false);
+      
+      const matchedCount = allResults.filter(r => r && r.priority > 0).length;
+      setStatus(`Сопоставление завершено. Найдено ${matchedCount} из ${total} соответствий.`);
+    } catch (err) {
+      console.error('Matching error:', err);
+      setStatus(`Ошибка: ${err instanceof Error ? err.message : 'Неизвестная ошибка при сопоставлении'}`);
+      setIsProcessing(false);
+    }
   };
 
   const downloadResults = () => {
